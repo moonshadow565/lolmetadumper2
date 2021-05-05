@@ -8,10 +8,13 @@ extern crate serde_json;
 mod meta;
 mod meta_dump;
 mod module_info;
-use winapi::um::consoleapi::AllocConsole;
+use winapi::ctypes::c_void;
+use core::ptr::null_mut;
+use winapi::um::processthreadsapi::CreateThread;
 use winapi::um::processthreadsapi::ExitProcess;
+use winapi::um::consoleapi::AllocConsole;
 
-unsafe fn main() {
+unsafe extern "system" fn thread(_arg: *mut c_void) -> u32 {
     AllocConsole();
     println!("Started!");
     let module_info = module_info::ModuleInfo::create();
@@ -19,6 +22,11 @@ unsafe fn main() {
     module_info.dump_meta_info_file("meta");
     println!("Done!");
     ExitProcess(0);
+    0
+}
+
+unsafe fn main() {
+    CreateThread(null_mut(), 0, Some(thread), null_mut(), 0, null_mut());
 }
 
 mod bugsplat_dll {
