@@ -265,6 +265,8 @@ pub fn dump_class(base: usize, class: &Class) -> Value {
         "secondary_children": dump_class_secondary(class.secondary_children.slice()),
         "size": class.class_size,
         "alignment": class.alignment,
+        "is": dump_class_flags(class),
+        "fn": dump_class_functions(base, class),
         "properties": dump_property_list(base, class.properties.slice()),
         "defaults": dump_class_defaults(class),
     })
