@@ -20,9 +20,7 @@ use winapi::um::winbase::IsBadReadPtr;
 use winapi::um::winnt::THREAD_ALL_ACCESS;
 use winapi::um::{libloaderapi::GetModuleHandleA, processthreadsapi::GetCurrentProcessId};
 
-const PATTERNS: &[&str] = &[
-    r"(?s-u)\x83\x3D....\xFF\x75\xE4\x68....\xC7\x05(....)\x00\x00\x00\x00\xC7\x05....\x00\x00\x00\x00\xC7\x05....\x00\x00\x00\x00\xC6\x05....\x00\xE8",
-];
+const PATTERN: &str = r"(?s-u)\x83\x3D....\xFF\x75\xE4\x68....\xC7\x05(....)\x00\x00\x00\x00\xC7\x05....\x00\x00\x00\x00\xC7\x05....\x00\x00\x00\x00\xC6\x05....\x00\xE8";
 
 pub struct ModuleInfo {
     pub base: usize,
@@ -96,14 +94,16 @@ impl ModuleInfo {
         }
     }
 
-    pub fn dump_data(&self) -> Vec<u8> {
-        let mut data = Vec::with_capacity(self.image_size);
-        data.resize(self.image_size, 0);
+    pub fn scan_memory<F, R>(&self, callback: F) -> Option<R>
+        where F: Fn(&[u8]) -> Option<R> 
+    {
         let mut remain = self.image_size as usize;
         let process = unsafe { GetCurrentProcess() };
+        let mut buffer = [0u8; 0x2000];
+        let mut last_page_size = 0;
         loop {
             if remain == 0 {
-                break;
+                return None;
             }
             let page_size = if remain % 0x1000 != 0 {
                 remain % 0x1000
@@ -111,21 +111,28 @@ impl ModuleInfo {
                 0x1000
             };
             remain -= page_size;
-            let offset = (self.base + remain) as *const _;
             unsafe {
-                if IsBadReadPtr(offset, page_size) == 0 {
-                    let dest = &mut data[remain] as *mut _ as *mut _;
-                    ReadProcessMemory(process, offset, dest, page_size, core::ptr::null_mut());
+                let offset = (self.base + remain) as *const _;
+                if IsBadReadPtr(offset, page_size) != 0 {
+                    last_page_size = 0;
+                    continue;
                 }
+                let copy_src = &buffer[0..last_page_size] as *const _ as *const u8;
+                let copy_dst = &mut buffer[page_size..page_size + last_page_size] as * mut _ as * mut u8;
+                core::ptr::copy(copy_src, copy_dst, last_page_size);
+                let read_dst = &mut buffer[0..page_size] as *mut _ as *mut _;
+                ReadProcessMemory(process, offset, read_dst, page_size, core::ptr::null_mut());
+            }
+            if let Some(result) = callback(&buffer[0..page_size + last_page_size]) {
+                return Some(result)
             }
         }
-        data
     }
 
-    pub fn find_meta(&self, data: &[u8]) -> Option<&RiotVector<&Class>> {
-        for &pattern in PATTERNS {
-            let regex = Regex::new(pattern).expect("Bad pattern!");
-            if let Some(captures) = regex.captures(&data) {
+    pub fn find_meta(&self) -> Option<&RiotVector<&Class>>  {
+        let regex = Regex::new(PATTERN).expect("Bad pattern!");
+        self.scan_memory(|data| {
+            if let Some(captures) = regex.captures(data) {
                 let result = captures.get(1).unwrap().as_bytes().as_ptr();
                 if result != core::ptr::null() {
                     unsafe {
@@ -136,15 +143,15 @@ impl ModuleInfo {
                     }
                 }
             }
-        }
-        None
+            return None
+        })
     }
 
     pub fn dump_meta_info_file(&self, folder: &str) {
-        println!("Dumping memory...");
-        let data = self.dump_data();
-        println!("Scanning memory..");
-        let classes = self.find_meta(&data).expect("Failed to find metaclasses");
+        println!("Stoping other threads!");
+        Self::pause_threads();
+        println!("Finding metaclasses..");
+        let classes = self.find_meta().expect("Failed to find metaclasses");
         println!("Processing classes...");
         let meta_info = json!({
             "version": self.version,
