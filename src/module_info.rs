@@ -141,8 +141,6 @@ impl ModuleInfo {
     }
 
     pub fn dump_meta_info_file(&self, folder: &str) {
-        println!("Pausing threads!");
-        Self::pause_threads();
         println!("Dumping memory...");
         let data = self.dump_data();
         println!("Scanning memory..");
