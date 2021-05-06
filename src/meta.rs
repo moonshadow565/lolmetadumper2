@@ -260,6 +260,9 @@ pub struct Property {
 }
 
 #[repr(C)]
+pub struct BaseOff(pub &'static Class, pub u32);
+
+#[repr(C)]
 pub struct Class {
     pub upcast_secondary_fn: Option<extern "C" fn(instance: usize) -> usize>,
     pub hash: u32,
@@ -277,8 +280,8 @@ pub struct Class {
     pub is_secondary_base: bool,
     pub is_unk5: bool,
     pub properties: RiotVector<Property>,
-    pub secondary_bases: RiotVector<(&'static Class, u32)>,
-    pub secondary_children: RiotVector<(&'static Class, u32)>,
+    pub secondary_bases: RiotVector<BaseOff>,
+    pub secondary_children: RiotVector<BaseOff>,
 }
 
 impl Class {

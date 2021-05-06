@@ -159,7 +159,7 @@ fn dump_instance_properties(class: &Class, instance: usize, results: &mut Map<St
             dump_instance_properties(class, instance, results);
         }
     }
-    for &(class, offset) in class.secondary_bases.slice() {
+    for &BaseOff(class, offset) in class.secondary_bases.slice() {
         if class.is_interface {
             dump_instance_properties(class, instance + offset as usize, results);
         }
@@ -236,9 +236,9 @@ fn dump_class_flags(class: &Class) -> Value {
     })
 }
 
-fn dump_class_secondary(class_offset_pairs: &[(&Class, u32)]) -> Value {
+fn dump_class_secondary(class_offset_pairs: &[BaseOff]) -> Value {
     let mut results = Map::new();
-    for &(class, offset) in class_offset_pairs {
+    for &BaseOff(class, offset) in class_offset_pairs {
         let key = dump_hex(class.hash);
         let value = offset.into();
         results.insert(key, value);
