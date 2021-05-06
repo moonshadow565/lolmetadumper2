@@ -12,6 +12,7 @@ mod native;
 use regex::bytes::Regex;
 use serde_json::json;
 use std::fs::{self, File};
+use std::io::Write;
 
 const PATTERN: &str = r"(?s-u)\x83\x3D....\xFF\x75\xE4\x68....\xC7\x05(....)\x00\x00\x00\x00\xC7\x05....\x00\x00\x00\x00\xC7\x05....\x00\x00\x00\x00\xC6\x05....\x00\xE8";
 type MetaVector = *const *const meta::RiotVector<&'static meta::Class>;
@@ -19,14 +20,18 @@ type MetaVector = *const *const meta::RiotVector<&'static meta::Class>;
 fn main() {
     let folder = "meta";
     native::alloc_console();
-    println!("Started!");
     let regex = Regex::new(PATTERN).expect("Bad pattern!");
+
+    println!("Fetching module info...");
     let info = native::ModuleInfo::create();
+
     println!("Base: 0x{:X}", info.base);
     println!("ImageSize: 0x{:X}", info.image_size);
     println!("Version: {}", &info.version);
+    
     println!("Stoping other threads!");
     native::pause_threads();
+
     println!("Finding metaclasses..");
     let classes = info
         .scan_memory(|data| {
@@ -44,17 +49,23 @@ fn main() {
             return None;
         })
         .expect("Failed to find metaclasses");
+
     println!("Processing classes...");
     let meta_info = json!({
         "version": info.version,
         "classes": meta_dump::dump_class_list(info.base, classes.slice()),
     });
-    println!("Creating a file...");
-    fs::create_dir_all(folder).expect("Failed to create folder!");
-    let path = format!("{}/meta_{}.json", folder, info.version);
-    let file = File::create(path).expect("Failed to create meta file!");
+
+    println!("Serializing classes...");
+    let json_data = serde_json::to_vec_pretty(&meta_info).expect("Failed to serialize json!");
+    
     println!("Writing to file...");
-    serde_json::to_writer_pretty(file, &meta_info).expect("Failed to serialize json!");
+    fs::create_dir_all(folder).expect("Failed to create folder!");
+    File::create(format!("{}/meta_{}.json", folder, info.version))
+        .expect("Failed to create meta file!")
+        .write_all(&json_data)
+        .expect("Failed to write to file!");
+
     println!("Done!");
     native::exit_process(0);
 }
