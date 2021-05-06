@@ -177,10 +177,10 @@ fn dump_property_container(base: usize, container: &ContainerI, source: BinType)
         "value_type": container.value_type,
         "value_size": container.value_size,
         "fixed_size": container.get_fixed_size(),
-        "storage": if source == BinType::Option { 
-            None 
-        } else { 
-            Some(container.get_storage()) 
+        "storage": if source == BinType::Option {
+            None
+        } else {
+            Some(container.get_storage())
         },
     })
 }

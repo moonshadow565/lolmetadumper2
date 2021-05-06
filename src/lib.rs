@@ -7,18 +7,56 @@ extern crate serde_json;
 
 mod meta;
 mod meta_dump;
-mod module_info;
-use winapi::um::processthreadsapi::ExitProcess;
-use winapi::um::consoleapi::AllocConsole;
+mod native;
 
-unsafe fn main() {
-    AllocConsole();
+use regex::bytes::Regex;
+use serde_json::json;
+use std::fs::{self, File};
+
+const PATTERN: &str = r"(?s-u)\x83\x3D....\xFF\x75\xE4\x68....\xC7\x05(....)\x00\x00\x00\x00\xC7\x05....\x00\x00\x00\x00\xC7\x05....\x00\x00\x00\x00\xC6\x05....\x00\xE8";
+type MetaVector = *const *const meta::RiotVector<&'static meta::Class>;
+
+fn main() {
+    let folder = "meta";
+    native::alloc_console();
     println!("Started!");
-    let module_info = module_info::ModuleInfo::create();
-    module_info.print_info();
-    module_info.dump_meta_info_file("meta");
+    let regex = Regex::new(PATTERN).expect("Bad pattern!");
+    let info = native::ModuleInfo::create();
+    println!("Base: 0x{:X}", info.base);
+    println!("ImageSize: 0x{:X}", info.image_size);
+    println!("Version: {}", &info.version);
+    println!("Stoping other threads!");
+    native::pause_threads();
+    println!("Finding metaclasses..");
+    let classes = info
+        .scan_memory(|data| {
+            if let Some(captures) = regex.captures(data) {
+                let result = captures.get(1).unwrap().as_bytes().as_ptr();
+                if result != core::ptr::null() {
+                    unsafe {
+                        let offset = *(result as MetaVector);
+                        if offset != core::ptr::null() {
+                            return Some(&*offset);
+                        }
+                    }
+                }
+            }
+            return None;
+        })
+        .expect("Failed to find metaclasses");
+    println!("Processing classes...");
+    let meta_info = json!({
+        "version": info.version,
+        "classes": meta_dump::dump_class_list(info.base, classes.slice()),
+    });
+    println!("Creating a file...");
+    fs::create_dir_all(folder).expect("Failed to create folder!");
+    let path = format!("{}/meta_{}.json", folder, info.version);
+    let file = File::create(path).expect("Failed to create meta file!");
+    println!("Writing to file...");
+    serde_json::to_writer_pretty(file, &meta_info).expect("Failed to serialize json!");
     println!("Done!");
-    ExitProcess(0);
+    native::exit_process(0);
 }
 
 mod bugsplat_dll {
@@ -26,7 +64,6 @@ mod bugsplat_dll {
     pub unsafe extern "system" fn _0(_1: usize) {
         super::main();
     }
-
     #[export_name = "?setCallback@MiniDmpSender@@QAEXP6A_NIPAX0@Z@Z"]
     pub unsafe extern "system" fn _1() {}
     #[export_name = "?setLogFilePath@MiniDmpSender@@QAEXPB_W@Z"]
