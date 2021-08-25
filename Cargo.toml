@@ -8,7 +8,7 @@ edition = "2018"
 
 [lib]
 crate-type = ["cdylib"]
-name = "BugSplat"
+name = "powrprof"
 
 
 [dependencies]
