@@ -32,18 +32,14 @@ impl ModuleInfo {
             let code_size = module.optional_header().SizeOfCode as usize;
             let image_size = code_base + code_size;
             let resources = module.resources().expect("Failed to open resources");
-            let version_info = resources
-                .version_info()
-                .expect("Failed to find version info!");
-            let lang = version_info
-                .translation()
-                .get(0)
-                .expect("Failed to find resource language!");
-            let version = version_info
-                .value(*lang, "ProductVersion")
-                .expect("Failed to find version string")
-                .replace("\0", "")
-                .to_string();
+            let mut version = "".to_string();
+            if let Ok(version_info) = resources.version_info() {
+                if let Some(lang) = version_info.translation().get(0) {
+                    if let Some(product_version) = version_info.value(*lang, "ProductVersion") {
+                        version = product_version.replace("\0", "").to_string();
+                    }
+                }
+            }
             Self {
                 base,
                 version,
