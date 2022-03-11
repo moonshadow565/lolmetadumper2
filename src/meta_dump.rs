@@ -1,8 +1,10 @@
-use super::meta::*;
 use core::ffi::c_void;
 use core::fmt::LowerHex;
+
 use serde_json::json;
 use serde_json::{Map, Value};
+
+use crate::meta::*;
 
 fn dump_hex<T: Copy + LowerHex>(value: T) -> String {
     format!("0x{:x}", value)
@@ -42,8 +44,7 @@ fn dump_instance_hash(instance: usize) -> Value {
     dump_hex(result).into()
 }
 
-fn dump_instance_link(instance: usize, class: &Class) -> Value {
-    let _ = class;
+fn dump_instance_link(instance: usize, _class: &Class) -> Value {
     dump_instance_hash(instance)
 }
 
@@ -52,15 +53,11 @@ fn dump_instance_path(instance: usize) -> Value {
     dump_hex(result).into()
 }
 
-fn dump_instance_embed(instance: usize, class: &Class) -> Value {
-    let _ = instance;
-    let _ = class;
+fn dump_instance_embed(_instance: usize, _class: &Class) -> Value {
     Map::new().into()
 }
 
-fn dump_instance_pointer(instance: usize, class: &Class) -> Value {
-    let _ = instance;
-    let _ = class;
+fn dump_instance_pointer(_instance: usize, _class: &Class) -> Value {
     Value::Null
 }
 
@@ -75,12 +72,8 @@ fn dump_instance_list(instance: usize, container: &ContainerI, class: Option<&Cl
     result.into()
 }
 
-fn dump_instance_map(instance: usize, map: &MapI, class: Option<&Class>) -> Value {
-    let _ = class;
-    let size = map.get_size(instance);
-    if size != 0 {
-        panic!("Map size != 0");
-    }
+fn dump_instance_map(instance: usize, map: &MapI, _class: Option<&Class>) -> Value {
+    assert_eq!(map.get_size(instance), 0, "Map is not empty");
     Map::new().into()
 }
 
@@ -90,11 +83,9 @@ fn dump_instance_flag(instance: usize, bitmask: u8) -> Value {
 }
 
 fn dump_instance_option(instance: usize, container: &ContainerI, class: Option<&Class>) -> Value {
-    let size = container.get_size(instance);
-    if size == 0 {
-        Value::Null
-    } else {
-        dump_instance_nestable(instance, container.value_type, class)
+    match container.get_size(instance) {
+        0 => Value::Null,
+        _ => dump_instance_nestable(instance, container.value_type, class),
     }
 }
 
@@ -154,7 +145,7 @@ fn dump_instance_property(instance: usize, property: &Property) -> Value {
 }
 
 fn dump_instance_properties(class: &Class, instance: usize, results: &mut Map<String, Value>) {
-    for class in class.base_class {
+    if let Some(class) = class.base_class {
         if class.is_interface {
             dump_instance_properties(class, instance, results);
         }
@@ -177,11 +168,7 @@ fn dump_property_container(base: usize, container: &ContainerI, source: BinType)
         "value_type": container.value_type,
         "value_size": container.value_size,
         "fixed_size": container.get_fixed_size(),
-        "storage": if source == BinType::Option {
-            None
-        } else {
-            Some(container.get_storage())
-        },
+        "storage": (source != BinType::Option).then(|| container.get_storage()),
     })
 }
 
