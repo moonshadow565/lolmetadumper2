@@ -41,11 +41,9 @@ pub struct AString {
 
 impl AString {
     pub fn str(&self) -> &str {
-        if self.data.size() == 0 {
-            ""
-        } else {
-            unsafe { std::str::from_utf8_unchecked(self.data.slice()) }
-        }
+        (self.data.size() != 0)
+            .then(|| unsafe { std::str::from_utf8_unchecked(self.data.slice()) })
+            .unwrap_or_default()
     }
 }
 
@@ -113,20 +111,13 @@ pub struct ContainerI {
 
 impl ContainerI {
     pub fn get_size(&self, instance: usize) -> usize {
-        if let Some(fixed_size) = self.get_fixed_size() {
-            fixed_size as usize
-        } else {
-            (self.vtable.get_size)(self, instance)
-        }
+        self.get_fixed_size()
+            .unwrap_or_else(|| (self.vtable.get_size)(self, instance))
     }
 
     pub fn get_fixed_size(&self) -> Option<usize> {
         let result = (self.vtable.get_fixed_size)(self);
-        if result < 0 {
-            None
-        } else {
-            Some(result as usize)
-        }
+        (result >= 0).then(|| result as usize)
     }
 
     pub fn get_const(&self, instance: usize, index: usize) -> usize {
@@ -134,8 +125,7 @@ impl ContainerI {
     }
 
     pub fn get_storage(&self) -> ContainerStorage {
-        let fixed_size = self.get_fixed_size();
-        if fixed_size.is_some() {
+        if self.get_fixed_size().is_some() {
             ContainerStorage::Fixed
         } else {
             let hax: [u32; 4] = [self.value_size, self.value_size * 2, 0, 0];
@@ -235,15 +225,11 @@ impl MapI {
     pub fn get_storage(&self) -> MapStorage {
         let hax: [usize; 8] = [0, 0x78000000, 1, 0, 0, 0, 0, 0];
         let result = self.get_size(&hax as *const _ as _) as isize;
-        if result == 0x78000000 {
-            return MapStorage::StdMap;
-        } else if result == 1 {
-            return MapStorage::StdUnorderedMap;
-        } else if result > 0x7000 {
-            // TODO: is this StdVector<Pair> or RitoVector<Pair> ???
-            return MapStorage::RitoVectorMap;
-        } else {
-            return MapStorage::UnknownMap;
+        match result {
+            0x78000000 => MapStorage::StdMap,
+            0x7000.. => MapStorage::RitoVectorMap, // TODO: is this StdVector<Pair> or RitoVector<Pair> ???
+            1 => MapStorage::StdUnorderedMap,
+            _ => MapStorage::UnknownMap,
         }
     }
 }
