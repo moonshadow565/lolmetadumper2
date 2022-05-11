@@ -260,8 +260,6 @@ pub struct Class {
     pub base_class: Option<&'static Class>,
     pub class_size: usize,
     pub alignment: usize,
-    pub is_property_base: bool,
-    pub is_interface: bool,
     pub is_value: bool,
     pub is_secondary_base: bool,
     pub is_unk5: bool,

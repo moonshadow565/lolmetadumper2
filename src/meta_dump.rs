@@ -146,12 +146,12 @@ fn dump_instance_property(instance: usize, property: &Property) -> Value {
 
 fn dump_instance_properties(class: &Class, instance: usize, results: &mut Map<String, Value>) {
     if let Some(class) = class.base_class {
-        if class.is_interface {
+        if class.constructor_fn.is_none() {
             dump_instance_properties(class, instance, results);
         }
     }
     for &BaseOff(class, offset) in class.secondary_bases.slice() {
-        if class.is_interface {
+        if class.constructor_fn.is_none() {
             dump_instance_properties(class, instance + offset as usize, results);
         }
     }
@@ -215,8 +215,9 @@ fn dump_class_functions(base: usize, class: &Class) -> Value {
 
 fn dump_class_flags(class: &Class) -> Value {
     json!({
-        "property_base": class.is_property_base,
-        "interface": class.is_interface,
+        // FIXME: gone with 12.10, what do we print here?
+        // "property_base": class.is_property_base,
+        "interface": class.constructor_fn.is_none(),
         "value": class.is_value,
         "secondary_base": class.is_secondary_base,
         "unk5": class.is_unk5,
@@ -233,12 +234,18 @@ fn dump_class_secondary(class_offset_pairs: &[BaseOff]) -> Value {
     results.into()
 }
 
+fn is_empty(class: &Class) -> bool {
+    class.properties.size() == 0 && class.base_class.iter().all(|class| is_empty(class))
+}
+
 pub fn dump_class_defaults(class: &Class) -> Value {
-    if !class.is_interface {
-        let instance = class.create_instance();
+    if class.constructor_fn.is_some() {
         let mut results = Map::new();
-        dump_instance_properties(class, instance, &mut results);
-        class.destroy_instance(instance);
+        if !is_empty(class) {
+            let instance = class.create_instance();
+            dump_instance_properties(class, instance, &mut results);
+            class.destroy_instance(instance);
+        }
         results.into()
     } else {
         Value::Null
