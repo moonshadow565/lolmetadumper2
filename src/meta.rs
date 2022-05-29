@@ -266,6 +266,7 @@ pub struct Class {
     pub properties: RiotVector<Property>,
     pub secondary_bases: RiotVector<BaseOff>,
     pub secondary_children: RiotVector<BaseOff>,
+    pub unk_properties: RiotVector<&'static Property>,
 }
 
 impl Class {

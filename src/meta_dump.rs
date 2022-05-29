@@ -234,6 +234,14 @@ fn dump_class_secondary(class_offset_pairs: &[BaseOff]) -> Value {
     results.into()
 }
 
+fn dump_unk_properites(properites: &[&Property]) -> Value {
+    let mut results = Vec::new();
+    for &p in properites {
+        results.push(dump_hex(p.hash));
+    }
+    results.into()
+}
+
 fn is_empty(class: &Class) -> bool {
     class.properties.size() == 0 && class.base_class.iter().all(|class| is_empty(class))
 }
@@ -263,6 +271,7 @@ pub fn dump_class(base: usize, class: &Class) -> Value {
         "fn": dump_class_functions(base, class),
         "properties": dump_property_list(base, class.properties.slice()),
         "defaults": dump_class_defaults(class),
+        "unk_properties": dump_unk_properites(class.unk_properties.slice()),
     })
 }
 
