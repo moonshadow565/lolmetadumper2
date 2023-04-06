@@ -128,15 +128,17 @@ impl ContainerI {
         if self.get_fixed_size().is_some() {
             ContainerStorage::Fixed
         } else {
-            let hax: [u32; 4] = [self.value_size, self.value_size * 2, 0, 0];
-            let result = self.get_size(&hax as *const _ as _);
-            if result == (self.value_size * 2) as usize {
-                ContainerStorage::RitoVector
-            } else if result == 1 {
-                ContainerStorage::StdVector
-            } else {
-                ContainerStorage::UnknownVector
-            }
+            // FIXME: x86_64
+            // let hax: [u32; 4] = [self.value_size, self.value_size * 2, 0, 0];
+            // let result = self.get_size(&hax as *const _ as _);
+            // if result == (self.value_size * 2) as usize {
+            //     ContainerStorage::RitoVector
+            // } else if result == 1 {
+            //     ContainerStorage::StdVector
+            // } else {
+            //     ContainerStorage::UnknownVector
+            // }
+            ContainerStorage::UnknownVector
         }
     }
 }
@@ -223,14 +225,16 @@ impl MapI {
     }
 
     pub fn get_storage(&self) -> MapStorage {
-        let hax: [usize; 8] = [0, 0x78000000, 1, 0, 0, 0, 0, 0];
-        let result = self.get_size(&hax as *const _ as _) as isize;
-        match result {
-            0x78000000 => MapStorage::StdMap,
-            0x7000.. => MapStorage::RitoVectorMap, // TODO: is this StdVector<Pair> or RitoVector<Pair> ???
-            1 => MapStorage::StdUnorderedMap,
-            _ => MapStorage::UnknownMap,
-        }
+        // FIXME: x86_64
+        // let hax: [usize; 8] = [0, 0x78000000, 1, 0, 0, 0, 0, 0];
+        // let result = self.get_size(&hax as *const _ as _) as isize;
+        // match result {
+        //     0x78000000 => MapStorage::StdMap,
+        //     0x7000.. => MapStorage::RitoVectorMap, // TODO: is this StdVector<Pair> or RitoVector<Pair> ???
+        //     1 => MapStorage::StdUnorderedMap,
+        //     _ => MapStorage::UnknownMap,
+        // }
+        MapStorage::UnknownMap
     }
 }
 
