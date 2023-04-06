@@ -44,7 +44,7 @@ impl ModuleInfo {
 
     pub fn scan_memory<F, R>(&self, callback: F) -> Option<R>
     where
-        F: Fn(&[u8]) -> Option<R>,
+        F: Fn(&[u8], usize) -> Option<R>,
     {
         let mut remain = self.image_size as usize;
         let process = unsafe { GetCurrentProcess() };
@@ -57,8 +57,8 @@ impl ModuleInfo {
 
             let page_size = Some(remain % 0x1000).filter(|&x| x != 0).unwrap_or(0x1000);
             remain -= page_size;
+            let offset = (self.base + remain) as *const _;
             unsafe {
-                let offset = (self.base + remain) as *const _;
                 if IsBadReadPtr(offset, page_size) != 0 {
                     last_page_size = 0;
                     continue;
@@ -73,7 +73,7 @@ impl ModuleInfo {
                 }
             }
 
-            if let Some(result) = callback(&buffer[0..page_size + last_page_size]) {
+            if let Some(result) = callback(&buffer[0..page_size + last_page_size], offset as usize) {
                 return Some(result);
             }
         }

@@ -6,14 +6,15 @@ mod meta_dump;
 mod native;
 
 use std::fs::{self, File};
+use std::num::Wrapping;
 use std::io::Write;
 
 use regex::bytes::Regex;
 use serde_json::json;
 use winapi::um::winnt::DLL_PROCESS_ATTACH;
 
-const PATTERN: &str = r"(?s-u)\x83\x3D....\xFF\x75\xE4\x68....\xC7\x05(....)\x00\x00\x00\x00\xC7\x05....\x00\x00\x00\x00\xC7\x05....\x00\x00\x00\x00\xC6\x05....\x00\xE8";
-type MetaVector = *const meta::RiotVector<&'static meta::Class>;
+const PATTERN: &str = r"(?s-u)\x83\x3D....\xFF\x75\xDF\x33\xC0\x48\x8D\x0D....\x48\x89\x05(....)\x48\x89\x05";
+type MetaVector = meta::RiotVector<&'static meta::Class>;
 
 fn main() {
     let folder = "meta";
@@ -32,12 +33,16 @@ fn main() {
 
     println!("Finding metaclasses...");
     let classes = info
-        .scan_memory(|data| {
+        .scan_memory(|data, offset| {
             regex
                 .captures(data)
                 .and_then(|captures| captures.get(1))
-                .map(|x| x.as_bytes().as_ptr().cast::<MetaVector>())
-                .and_then(|x| unsafe { x.as_ref() })
+                .map(|x| {
+                    let base = offset + x.end();
+                    let rel = unsafe { *x.as_bytes().as_ptr().cast::<i32>() };
+                    base.wrapping_add(rel as isize as usize)
+                })
+                .map(|x| unsafe { x as *const MetaVector })
                 .and_then(|x| unsafe { x.as_ref() })
         })
         .expect("Failed to find metaclasses");
