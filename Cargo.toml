@@ -13,7 +13,6 @@ name = "TextShaping"
 [dependencies]
 winapi = { version = "0.3.9", features = ["winbase", "consoleapi", "processthreadsapi"] }
 pelite = "0.9.0"
-regex = "1.5.5"
 serde = { version = "1.0.64", features = ["derive"] }
 serde_json = "1.0.64"
 tlhelp32 = "1.0.3"

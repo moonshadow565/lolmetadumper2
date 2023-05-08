@@ -1,4 +1,5 @@
-use pelite::pe::{Pe, PeView};
+use pelite::pattern;
+use pelite::pe::{Pe, PeView, Rva};
 use winapi::um::consoleapi::AllocConsole;
 use winapi::um::handleapi::CloseHandle;
 use winapi::um::handleapi::INVALID_HANDLE_VALUE;
@@ -42,40 +43,29 @@ impl ModuleInfo {
         }
     }
 
-    pub fn scan_memory<F, R>(&self, callback: F) -> Option<R>
-    where
-        F: Fn(&[u8], usize) -> Option<R>,
+    pub fn scan_memory(&self, pat: &str) -> Option<usize>
     {
+        // TODO: remove this, leftover from using regex for scanning
         let mut remain = self.image_size as usize;
-        let process = unsafe { GetCurrentProcess() };
-        let mut buffer = [0u8; 0x2000];
-        let mut last_page_size = 0;
-        loop {
-            if remain == 0 {
-                return None;
-            }
-
+        while remain != 0 {
             let page_size = Some(remain % 0x1000).filter(|&x| x != 0).unwrap_or(0x1000);
             remain -= page_size;
             let offset = (self.base + remain) as *const _;
             unsafe {
                 if IsBadReadPtr(offset, page_size) != 0 {
-                    last_page_size = 0;
-                    continue;
-                }
-
-                buffer.copy_within(0..last_page_size, page_size);
-
-                let read_dst = buffer[0..page_size].as_mut_ptr().cast();
-                if ReadProcessMemory(process, offset, read_dst, page_size, &mut 0) == 0 {
-                    last_page_size = 0;
                     continue;
                 }
             }
+        }
 
-            if let Some(result) = callback(&buffer[0..page_size + last_page_size], offset as usize) {
-                return Some(result);
-            }
+        let module = unsafe { PeView::module(self.base as *const _) };
+        let scanner = module.scanner();
+        let pattern = pattern::parse(pat).expect("Failed to parse pattern");
+        let mut save = [Rva::default(); 2];
+        if scanner.finds_code(&pattern, &mut save) {
+            Some(self.base + save[1] as usize)
+        } else {
+            None
         }
     }
 }
