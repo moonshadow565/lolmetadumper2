@@ -247,6 +247,7 @@ pub struct Property {
     pub value_type: BinType,
     pub container: Option<&'static ContainerI>,
     pub map: Option<&'static MapI>,
+    pub unkptr: usize,
 }
 
 #[repr(C)]

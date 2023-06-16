@@ -189,6 +189,7 @@ fn dump_property(base: usize, property: &Property) -> Value {
         "value_type": property.value_type,
         "container": property.container.map(|c| dump_property_container(base, c, property.value_type)),
         "map": property.map.map(|m| dump_property_map(base, m)),
+        "unkptr": dump_hex(property.unkptr),
     })
 }
 
